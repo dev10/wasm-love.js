@@ -19,19 +19,59 @@
     </center>
 
     <script type='text/javascript'>
-      function goFullScreen(){
-            var canvas = document.getElementById("canvas");
-            if(canvas.requestFullScreen)
-                canvas.requestFullScreen();
-            else if(canvas.webkitRequestFullScreen)
-                canvas.webkitRequestFullScreen();
-            else if(canvas.mozRequestFullScreen)
-                canvas.mozRequestFullScreen();
+      // Canvas resize handling to support dynamic resizing
+      var lastCanvasWidth = 0;
+      var lastCanvasHeight = 0;
+
+      function resizeCanvas() {
+        var canvas = document.getElementById('canvas');
+        if (!canvas) return;
+
+        // Get the displayed size of the canvas (CSS size)
+        var displayWidth = canvas.clientWidth;
+        var displayHeight = canvas.clientHeight;
+
+        // Check if the canvas size changed
+        if (displayWidth !== lastCanvasWidth || displayHeight !== lastCanvasHeight) {
+          lastCanvasWidth = displayWidth;
+          lastCanvasHeight = displayHeight;
+
+          // Update the actual canvas buffer size to match display size
+          canvas.width = displayWidth;
+          canvas.height = displayHeight;
+
+          // Trigger SDL's window resize event if the Module is loaded
+          if (typeof Module !== 'undefined' && Module.canvas === canvas) {
+            // Try to use emscripten's set canvas size if available
+            try {
+              if (typeof Module.setCanvasSize === 'function') {
+                Module.setCanvasSize(displayWidth, displayHeight);
+              }
+            } catch (e) {
+              console.log('setCanvasSize not available:', e);
+            }
+
+            // Dispatch browser resize event to trigger SDL event handling
+            var event = document.createEvent('UIEvents');
+            event.initUIEvent('resize', true, false, window, 0);
+            window.dispatchEvent(event);
+          }
+        }
       }
-      function FullScreenHook(){
+
+      function goFullScreen(){
         var canvas = document.getElementById("canvas");
-        canvas.width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-        canvas.height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+        if(canvas.requestFullScreen)
+            canvas.requestFullScreen();
+        else if(canvas.webkitRequestFullScreen)
+            canvas.webkitRequestFullScreen();
+        else if(canvas.mozRequestFullScreen)
+            canvas.mozRequestFullScreen();
+      }
+
+      // Legacy function kept for compatibility
+      function FullScreenHook(){
+        resizeCanvas();
       }
       var loadingContext = document.getElementById('loadingCanvas').getContext('2d');
       function drawLoadingText(text) {
@@ -100,6 +140,19 @@
 
       var applicationLoad = function(e) {
         Love(Module);
+
+        // Set up canvas resize handling after the module loads
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Also handle fullscreen changes
+        document.addEventListener('fullscreenchange', resizeCanvas);
+        document.addEventListener('webkitfullscreenchange', resizeCanvas);
+        document.addEventListener('mozfullscreenchange', resizeCanvas);
+
+        // Check for resize periodically to catch any other resize events
+        // (e.g., from CSS changes, container resizing, etc.)
+        setInterval(resizeCanvas, 100);
       }
     </script>
     <script type="text/javascript" src="game.js"></script>
