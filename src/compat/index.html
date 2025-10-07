@@ -11,7 +11,7 @@
   </head>
   <body>
     <center>
-      <div>
+      <div id="game-container">
         <h1>{{title}}</h1>
         <canvas id="loadingCanvas" oncontextmenu="event.preventDefault()" width="800" height="600"></canvas>
         <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
@@ -60,13 +60,51 @@
       }
 
       function goFullScreen(){
-        var canvas = document.getElementById("canvas");
-        if(canvas.requestFullScreen)
-            canvas.requestFullScreen();
-        else if(canvas.webkitRequestFullScreen)
-            canvas.webkitRequestFullScreen();
-        else if(canvas.mozRequestFullScreen)
-            canvas.mozRequestFullScreen();
+        // Detect if we're on a mobile device
+        var isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        // On mobile, use CSS fullscreen as it's more reliable
+        if(isMobile) {
+          var canvas = document.getElementById("canvas");
+          if(canvas.style.position !== 'fixed') {
+            canvas.style.position = 'fixed';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.width = '100vw';
+            canvas.style.height = '100vh';
+            canvas.style.zIndex = '9999';
+            canvas.style.backgroundColor = '#000';
+            document.body.style.overflow = 'hidden';
+            // Trigger resize to update canvas dimensions
+            setTimeout(resizeCanvas, 100);
+          } else {
+            canvas.style.position = '';
+            canvas.style.top = '';
+            canvas.style.left = '';
+            canvas.style.width = '';
+            canvas.style.height = '';
+            canvas.style.zIndex = '';
+            canvas.style.backgroundColor = '';
+            document.body.style.overflow = '';
+            setTimeout(resizeCanvas, 100);
+          }
+        } else {
+          // Desktop: use native fullscreen API
+          var elem = document.getElementById("game-container") || document.documentElement;
+          try {
+            if(elem.requestFullscreen) {
+              elem.requestFullscreen();
+            } else if(elem.webkitRequestFullscreen) {
+              elem.webkitRequestFullscreen();
+            } else if(elem.mozRequestFullScreen) {
+              elem.mozRequestFullScreen();
+            } else if(elem.msRequestFullscreen) {
+              elem.msRequestFullscreen();
+            }
+          } catch(e) {
+            console.error('Fullscreen error:', e);
+          }
+        }
       }
 
       // Legacy function kept for compatibility
@@ -119,6 +157,12 @@
           } else if (Module.remainingDependencies === 0) {
             document.getElementById('loadingCanvas').style.display = 'none';
             document.getElementById('canvas').style.visibility = 'visible';
+
+            // Auto-fullscreen on mobile when loading is complete
+            var isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if(isMobile) {
+              setTimeout(goFullScreen, 100);
+            }
           }
         },
         totalDependencies: 0,
