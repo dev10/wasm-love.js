@@ -159,6 +159,87 @@
         loadingContext.fillText("Powered By LÖVE.", canvas.width / 2, canvas.height / 4 * 3);
       }
 
+      // Mobile keyboard support
+      var mobileTextInput = null;
+      var textInputActive = false;
+
+      function createMobileTextInput() {
+        if (!mobileTextInput) {
+          mobileTextInput = document.createElement('input');
+          mobileTextInput.type = 'text';
+          mobileTextInput.id = 'mobile-text-input';
+          mobileTextInput.style.position = 'fixed';
+          mobileTextInput.style.left = '0';
+          mobileTextInput.style.top = '0';
+          mobileTextInput.style.opacity = '0';
+          mobileTextInput.style.width = '1px';
+          mobileTextInput.style.height = '1px';
+          mobileTextInput.style.fontSize = '16px'; // Prevent zoom on iOS
+          mobileTextInput.style.pointerEvents = 'none';
+          document.body.appendChild(mobileTextInput);
+
+          // Forward input events to the canvas
+          mobileTextInput.addEventListener('input', function(e) {
+            var event = new KeyboardEvent('keypress', {
+              key: e.data || '',
+              code: e.data || '',
+              charCode: e.data ? e.data.charCodeAt(0) : 0,
+              keyCode: e.data ? e.data.charCodeAt(0) : 0,
+              which: e.data ? e.data.charCodeAt(0) : 0,
+              bubbles: true
+            });
+            document.getElementById('canvas').dispatchEvent(event);
+          });
+        }
+      }
+
+      // Mobile keyboard fix: Touch listener for synchronous focus
+      var touchListener = null;
+      var isMobileDevice = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      // Global function that SDL can call to show/hide text input
+      window.SDL_StartTextInput = function() {
+        createMobileTextInput();
+        textInputActive = true;
+        if (mobileTextInput) {
+          mobileTextInput.style.pointerEvents = 'auto';
+          mobileTextInput.focus();
+        }
+
+        // On mobile: Add touch listener when text input is requested
+        // This allows keyboard to appear on next touch (synchronous focus requirement)
+        if (isMobileDevice && !touchListener) {
+          var canvas = document.getElementById('canvas');
+          if (canvas) {
+            touchListener = function(e) {
+              if (textInputActive && mobileTextInput) {
+                mobileTextInput.style.pointerEvents = 'auto';
+                mobileTextInput.focus();
+              }
+            };
+            canvas.addEventListener('touchstart', touchListener, { passive: true });
+          }
+        }
+      };
+
+      window.SDL_StopTextInput = function() {
+        textInputActive = false;
+        if (mobileTextInput) {
+          mobileTextInput.style.pointerEvents = 'none';
+          mobileTextInput.blur();
+          mobileTextInput.value = '';
+        }
+
+        // Remove touch listener when text input is no longer needed
+        if (isMobileDevice && touchListener) {
+          var canvas = document.getElementById('canvas');
+          if (canvas) {
+            canvas.removeEventListener('touchstart', touchListener);
+            touchListener = null;
+          }
+        }
+      };
+
       window.onload = function () { window.focus(); };
       window.onclick = function () { window.focus(); };
 
